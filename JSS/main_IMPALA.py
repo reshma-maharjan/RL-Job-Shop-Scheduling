@@ -9,7 +9,7 @@ import numpy as np
 
 import ray.tune.integration.wandb as wandb_tune
 
-from ray.rllib.agents.ppo import PPOTrainer
+from ray.rllib.agents.impala import ImpalaTrainer
 
 from CustomCallbacks import *
 from models import *
@@ -61,7 +61,7 @@ def _handle_result(result: Dict) -> Tuple[Dict, Dict]:
 
 def train_func():
     current_path = pathlib.Path(__file__).parent
-    instance_path = current_path.parent / "JSS" / "instances" / "ta42"
+    instance_path = current_path.parent / "JSS" / "instances" / "ta47"
     if not instance_path.exists():
         raise FileNotFoundError(f"Path {instance_path} does not exist")
     default_config = {
@@ -79,34 +79,23 @@ def train_func():
         'train_batch_size': mp.cpu_count() * 4 * 704,
         'num_envs_per_worker': 4,
         'rollout_fragment_length': 704,  # TO TUNE
-        'sgd_minibatch_size': 33000,
         'layer_size': 319,
         'lr': 0.0006861,  # TO TUNE
-        'lr_start': 0.0006861,  # TO TUNE
-        'lr_end': 0.00007783,  # TO TUNE
-        'clip_param': 0.541,  # TO TUNE
-        'vf_clip_param': 26,  # TO TUNE
+        # 'lr_start': 0.0006861,  # TO TUNE
+        # 'lr_end': 0.00007783,  # TO TUNE
         'num_sgd_iter': 12,  # TO TUNE
         "vf_loss_coeff": 0.7918,
-        "kl_coeff": 0.496,
-        'kl_target': 0.05047,  # TO TUNE
-        'lambda': 1.0,
-        'entropy_coeff': 0.0002458,  # TUNE LATER
-        'entropy_start': 0.0002458,
-        'entropy_end': 0.002042,
+        # 'entropy_coeff': 0.0002458,  # TUNE LATER
+        # 'entropy_start': 0.0002458,
+        # 'entropy_end': 0.002042,
         'entropy_coeff_schedule': None,
         "batch_mode": "truncate_episodes",
-        "grad_clip": None,
-        "use_critic": True,
-        "use_gae": True,
-        "shuffle_sequences": True,
-        "vf_share_layers": False,
+        "grad_clip": 40.0,
         "observation_filter": "NoFilter",
-        "simple_optimizer": False,
         "_fake_gpus": False,
     }
 
-    wandb.init(project ='JSS_PPO_SServer', config=default_config, name="ta42")
+    wandb.init(project ='JSS_IMPALA_server', config=default_config, name="ta47")
     ray.init()
     tf.random.set_seed(0)
     np.random.seed(0)
@@ -129,13 +118,16 @@ def train_func():
     config = with_common_config(config)
     config['seed'] = 0
     config['callbacks'] = CustomCallbacks
-    config['train_batch_size'] = config['sgd_minibatch_size']
+    config['train_batch_size'] = config['train_batch_size']
 
-    config['lr'] = config['lr_start']
-    config['lr_schedule'] = [[0, config['lr_start']], [15000000, config['lr_end']]]
+    # config['lr'] = config['lr_start']
+    # config['lr_schedule'] = [[0, config['lr_start']], [15000000, config['lr_end']]]
 
-    config['entropy_coeff'] = config['entropy_start']
-    config['entropy_coeff_schedule'] = [[0, config['entropy_start']], [15000000, config['entropy_end']]]
+    # config['entropy_coeff'] = config['entropy_start']
+    # config['entropy_coeff_schedule'] = [[0, config['entropy_start']], [15000000, config['entropy_end']]]
+
+    config['lr'] = 0.0006861
+    config['entropy_coeff'] = 0.0002458
 
     config.pop('instance_path', None)
     config.pop('layer_size', None)
@@ -150,7 +142,7 @@ def train_func():
     }
 
     start_time = time.time()
-    trainer = PPOTrainer(config=config)
+    trainer = ImpalaTrainer(config=config)
     while start_time + stop['time_total_s'] > time.time():
         result = trainer.train()
         result = wandb_tune._clean_log(result)
@@ -158,10 +150,20 @@ def train_func():
         wandb.log(log)
         #wandb.config.update(config_update, allow_val_change=True)
     #trainer.export_policy_model("/home/jupyter/JSS/JSS/models/")
+         # Log other information if needed
+    #     wandb.log({"config_updates": config_update})
+    # # You can log more information here if needed
+    
+    # # Checkpointing (Optional)
+    # if trainer.should_checkpoint():
+    #     checkpoint = trainer.save()
+    #     wandb.save(checkpoint)  
+    # # Save final model (Optional)
+    # checkpoint = trainer.save()
+    # wandb.save(checkpoint)
 
     ray.shutdown()
 
 
 if __name__ == "__main__":
-
     train_func()

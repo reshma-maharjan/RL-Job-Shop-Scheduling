@@ -38,3 +38,17 @@ class FCMaskedActionsModelTF(DistributionalQTFModel, TFModelV2):
 
     def value_function(self):
         return self.action_embed_model.value_function()
+
+# class FCMaskedActionsModelTF(tf.keras.Model):
+#     def __init__(self, obs_space, action_space, num_outputs, model_config, name):
+#         super(FCMaskedActionsModelTF, self).__init__(name=name)
+#         self.fc1 = tf.keras.layers.Dense(256, activation='relu')
+#         self.fc2 = tf.keras.layers.Dense(256, activation='relu')
+#         self.logits = tf.keras.layers.Dense(num_outputs, activation=None)
+
+#     def call(self, inputs, **kwargs):
+#         x = tf.cast(inputs, tf.float32)
+#         x = self.fc1(x)
+#         x = self.fc2(x)
+#         logits = self.logits(x)
+#         return logits, x
