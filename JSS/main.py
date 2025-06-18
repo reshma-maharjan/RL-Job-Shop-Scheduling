@@ -61,7 +61,7 @@ def _handle_result(result: Dict) -> Tuple[Dict, Dict]:
 
 def train_func():
     current_path = pathlib.Path(__file__).parent
-    instance_path = current_path.parent / "JSS" / "instances" / "ta42"
+    instance_path = current_path.parent / "JSS" / "instances" / "ta80"
     if not instance_path.exists():
         raise FileNotFoundError(f"Path {instance_path} does not exist")
     default_config = {
@@ -82,9 +82,9 @@ def train_func():
         'sgd_minibatch_size': 33000,
         'layer_size': 319,
         'lr': 0.0006861,  # TO TUNE
-        'lr_start': 0.0006861,  # TO TUNE
-        'lr_end': 0.00007783,  # TO TUNE
-        'clip_param': 0.541,  # TO TUNE
+        'lr_start': 0.00066,  # TO TUNE
+        'lr_end': 0.000078,  # TO TUNE
+        'clip_param': 0.5,  # TO TUNE
         'vf_clip_param': 26,  # TO TUNE
         'num_sgd_iter': 12,  # TO TUNE
         "vf_loss_coeff": 0.7918,
@@ -92,8 +92,8 @@ def train_func():
         'kl_target': 0.05047,  # TO TUNE
         'lambda': 1.0,
         'entropy_coeff': 0.0002458,  # TUNE LATER
-        'entropy_start': 0.0002458,
-        'entropy_end': 0.002042,
+        'entropy_start': 0.0002,
+        'entropy_end': 0.0025,
         'entropy_coeff_schedule': None,
         "batch_mode": "truncate_episodes",
         "grad_clip": None,
@@ -106,7 +106,7 @@ def train_func():
         "_fake_gpus": False,
     }
 
-    wandb.init(project ='JSS_PPO_SServer', config=default_config, name="ta42")
+    wandb.init(project ='JSS_PPO_ta_layer_2', config=default_config, name="ta10")
     ray.init()
     tf.random.set_seed(0)
     np.random.seed(0)
@@ -145,19 +145,15 @@ def train_func():
     config.pop('entropy_start', None)
     config.pop('entropy_end', None)
 
-    stop = {
-        "time_total_s": 10 * 60, # The training loop runs for a total time of 10 minutes
-    }
+    iterations = 30  # Change this to run for 80 iterations
 
-    start_time = time.time()
+
     trainer = PPOTrainer(config=config)
-    while start_time + stop['time_total_s'] > time.time():
+    for _ in range(iterations):
         result = trainer.train()
         result = wandb_tune._clean_log(result)
         log, config_update = _handle_result(result)
         wandb.log(log)
-        #wandb.config.update(config_update, allow_val_change=True)
-    #trainer.export_policy_model("/home/jupyter/JSS/JSS/models/")
 
     ray.shutdown()
 
