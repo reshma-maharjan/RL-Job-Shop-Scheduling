@@ -47,9 +47,12 @@ def _handle_result(result: Dict) -> Tuple[Dict, Dict]:
     config_update.pop("callbacks", None)  # Remove callbacks
     return log, config_update
 
-def train_func():
+def train_func(instance_ind, project_name=None):
+    assert instance_ind is not None, "instance_ind must be provided"
+
     current_path = pathlib.Path(__file__).parent
-    instance_path = current_path.parent / "JSS" / "instances" / "ta40"
+    instance_path = current_path.parent / "JSS" / "instances" / f"ta{instance_ind}"
+
     if not instance_path.exists():
         raise FileNotFoundError(f"Path {instance_path} does not exist")
     default_config = {
@@ -64,16 +67,16 @@ def train_func():
         'gamma': 1.0,
         'num_workers': mp.cpu_count(),
         'layer_nb': 2,
-        'num_envs_per_worker': 4,
+        'num_envs_per_worker': 12,
         'rollout_fragment_length': 704,  # TO TUNE
         'layer_size': 319,
         'lr': 0.0006861,  # TO TUNE
-        'lr_start': 0.0006861,  # TO TUNE
-        'lr_end': 0.00007783,  # TO TUNE
+        'lr_start': 0.0006,  # TO TUNE
+        'lr_end': 0.000078,  # TO TUNE
         "vf_loss_coeff": 0.7918,
         'lambda': 1.0,
-        'entropy_coeff': 0.0002458,  # TUNE LATER
-        'entropy_start': 0.0002458,
+        'entropy_coeff': 0.0002,  # TUNE LATER
+        'entropy_start': 0.00025,
         'entropy_end': 0.002042,
         "batch_mode": "truncate_episodes",
         "grad_clip": 40.0,
@@ -83,7 +86,7 @@ def train_func():
         "_fake_gpus": False,
     }
 
-    wandb.init(project ='JSS_A3C_server_500', config=default_config, name="ta40")
+    wandb.init(project=project_name, config=default_config, name=f"ta{instance_ind}", group="JSS", job_type=f"training_{instance_ind}")
     ray.init()
     tf.random.set_seed(0)
     np.random.seed(0)
@@ -122,7 +125,7 @@ def train_func():
     config.pop('entropy_start', None)
     config.pop('entropy_end', None)
 
-    iterations = 500  # Change this to run for 80 iterations
+    iterations = 460  
 
 
     trainer = A3CTrainer(config=config)
@@ -131,23 +134,17 @@ def train_func():
         result = wandb_tune._clean_log(result)
         log, config_update = _handle_result(result)
         wandb.log(log)
-        #wandb.config.update(config_update, allow_val_change=True)
-
-    # stop = {
-    #     "time_total_s": 10 * 60, # The training loop runs for a total time of 10 minutes
-    # }
-
-    # start_time = time.time()
-    # trainer = A3CTrainer(config=config)
-    # while start_time + stop['time_total_s'] > time.time():
-    #     result = trainer.train()
-    #     result = wandb_tune._clean_log(result)
-    #     log, config_update = _handle_result(result)
-    #     wandb.log(log)
-    #     #wandb.config.update(config_update, allow_val_change=True)
-    # #trainer.export_policy_model("/home/jupyter/JSS/JSS/models/")
-
+        
+    wandb.finish()
     ray.shutdown()
 
 if __name__ == "__main__":
-    train_func()
+
+    
+    for ind in [61,62,70,71,72,80]:
+   
+        ind = str(ind).zfill(2)
+        print(f"Training instance {ind}")
+        train_func(instance_ind=ind, project_name="A3C_ta_452")
+        
+        time.sleep(10)
