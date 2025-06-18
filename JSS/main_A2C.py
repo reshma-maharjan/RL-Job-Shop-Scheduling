@@ -47,9 +47,12 @@ def _handle_result(result: Dict) -> Tuple[Dict, Dict]:
     config_update.pop("callbacks", None)  # Remove callbacks
     return log, config_update
 
-def train_func():
+def train_func(instance_ind, project_name=None):
+    assert instance_ind is not None, "instance_ind must be provided"
+
     current_path = pathlib.Path(__file__).parent
-    instance_path = current_path.parent / "JSS" / "instances" / "ta10"
+    instance_path = current_path.parent / "JSS" / "instances" / f"la{instance_ind}"
+
     if not instance_path.exists():
         raise FileNotFoundError(f"Path {instance_path} does not exist")
     default_config = {
@@ -57,7 +60,7 @@ def train_func():
         'seed': 0,
         'framework': 'tf',
         'log_level': 'WARN',
-        'num_gpus': 1,
+        'num_gpus': 6,
         'instance_path': str(instance_path.absolute()),#'./instances/ta01',
         'evaluation_interval': None,
         'metrics_smoothing_episodes': 2000,
@@ -68,12 +71,12 @@ def train_func():
         'rollout_fragment_length': 704,  # TO TUNE
         'layer_size': 319,
         'lr': 0.0006861,  # TO TUNE
-        'lr_start': 0.0006861,  # TO TUNE
-        'lr_end': 0.00007783,  # TO TUNE
+        'lr_start': 0.0006,  # TO TUNE
+        'lr_end': 0.000078,  # TO TUNE
         "vf_loss_coeff": 0.7918,
         'lambda': 1.0,
-        'entropy_coeff': 0.0002458,  # TUNE LATER
-        'entropy_start': 0.0002458,
+        'entropy_coeff': 0.0002,  # TUNE LATER
+        'entropy_start': 0.00025,
         'entropy_end': 0.002042,
         "batch_mode": "truncate_episodes",
         "grad_clip": 40.0,
@@ -83,7 +86,7 @@ def train_func():
         "_fake_gpus": False,
     }
 
-    wandb.init(project ='JSS_A2C_server_100', config=default_config, name="ta10")
+    wandb.init(project=project_name, config=default_config, name=f"la{instance_ind}", group="JSS", job_type=f"training_{instance_ind}")
     ray.init()
     tf.random.set_seed(0)
     np.random.seed(0)
@@ -122,7 +125,7 @@ def train_func():
     config.pop('entropy_start', None)
     config.pop('entropy_end', None)
 
-    iterations = 100  # Change this to run for 80 iterations
+    iterations = 60  # Change this to run for 80 iterations
 
 
     trainer = A2CTrainer(config=config)
@@ -131,23 +134,17 @@ def train_func():
         result = wandb_tune._clean_log(result)
         log, config_update = _handle_result(result)
         wandb.log(log)
-        #wandb.config.update(config_update, allow_val_change=True)
 
-    # stop = {
-    #     "time_total_s": 10 * 60, # The training loop runs for a total time of 10 minutes
-    # }
-
-    # start_time = time.time()
-    # trainer = A2CTrainer(config=config)
-    # while start_time + stop['time_total_s'] > time.time():
-    #     result = trainer.train()
-    #     result = wandb_tune._clean_log(result)
-    #     log, config_update = _handle_result(result)
-    #     wandb.log(log)
-    #     #wandb.config.update(config_update, allow_val_change=True)
-    # #trainer.export_policy_model("/home/jupyter/JSS/JSS/models/")
+    wandb.finish()
 
     ray.shutdown()
 
 if __name__ == "__main__":
-    train_func()
+
+    for ind in [20,25,30,35,40]:
+    
+        ind = str(ind).zfill(2)
+        print(f"Training instance {ind}")
+        train_func(instance_ind=ind, project_name="A2C_la_60")
+      
+        time.sleep(10)
