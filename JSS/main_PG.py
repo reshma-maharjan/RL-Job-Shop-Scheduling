@@ -45,9 +45,12 @@ def _handle_result(result: Dict) -> Tuple[Dict, Dict]:
     config_update.pop("callbacks", None)  # Remove callbacks
     return log, config_update
 
-def train_func():
+def train_func(instance_ind, project_name=None):
+    assert instance_ind is not None, "instance_ind must be provided"
+
     current_path = pathlib.Path(__file__).parent
-    instance_path = current_path.parent / "JSS" / "instances" / "ta10"
+    instance_path = current_path.parent / "JSS" / "instances" / f"la{instance_ind}"
+
     if not instance_path.exists():
         raise FileNotFoundError(f"Path {instance_path} does not exist")
     default_config = {
@@ -66,30 +69,17 @@ def train_func():
         'rollout_fragment_length': 704,  # TO TUNE
         'layer_size': 319,
         'lr': 0.0006861,  # TO TUNE
-        'lr_start': 0.0006861,  # TO TUNE
-        'lr_end': 0.00007783,  # TO TUNE
-       # "vf_loss_coeff": 0.7918,
-        #"kl_coeff": 0.496,
-        #'kl_target': 0.05047,  # TO TUNE
-        #'lambda': 1.0,
-        #'entropy_coeff': 0.0002458,  # TUNE LATER
-        'entropy_start': 0.0002458,
-        'entropy_end': 0.002042,
-        #'entropy_coeff_schedule': None,
+        'lr_start': 0.0006,  # TO TUNE
+        'lr_end': 0.000078,  # TO TUNE
+        'entropy_start': 0.0002,
+        'entropy_end': 0.0025,
         "batch_mode": "truncate_episodes",
-        #"grad_clip": None,
-        #"use_critic": True,
-        #"use_gae": True,
-        #"shuffle_sequences": True,
-        #"vf_share_layers": False,
         "observation_filter": "NoFilter",
-        #"simple_optimizer": False,
         "_fake_gpus": False,
     }
 
     
-    wandb.init(project ='JSS_PG_server', config=default_config, name="ta10")
-    #wandb.init(project="RL_JSS", config=default_config, name="ta41")
+    wandb.init(project=project_name, config=default_config, name=f"la{instance_ind}", group="JSS", job_type=f"training_{instance_ind}")
 
     ray.init()
     tf.random.set_seed(0)
@@ -118,7 +108,7 @@ def train_func():
     config['lr_schedule'] = [[0, config['lr_start']], [15000000, config['lr_end']]]
 
     config['entropy_coeff'] = config['entropy_start']
-    #config['entropy_coeff_schedule'] = [[0, config['entropy_start']], [15000000, config['entropy_end']]]
+    
 
     config.pop('instance_path', None)
     config.pop('layer_size', None)
@@ -131,22 +121,25 @@ def train_func():
     config.pop('clip_param',None)
     config.pop('sgd_minibatch_size', None)
 
+    iterations = 40 
 
-    stop = {
-        "time_total_s": 10 * 60, # The training loop runs for a total time of 10 minutes
-    }
-
-    start_time = time.time()
     trainer = PGTrainer(config=config)
-    while start_time + stop['time_total_s'] > time.time():
+    for _ in range(iterations):
         result = trainer.train()
         result = wandb_tune._clean_log(result)
         log, config_update = _handle_result(result)
         wandb.log(log)
-        #wandb.config.update(config_update, allow_val_change=True)
-
+    wandb.finish()
     ray.shutdown()
 
 
 if __name__ == "__main__":
-    train_func()
+
+    for ind in [20,25,30,35,40]:
+    #for ind in [61,62]:
+        # make ind two digits
+        ind = str(ind).zfill(2)
+        print(f"Training instance {ind}")
+        train_func(instance_ind=ind, project_name="PG_la")
+        
+        time.sleep(30)
